@@ -691,16 +691,34 @@ class GameScene extends Phaser.Scene {
     const container=this.add.container(lx,PLAY_TOP-35);
     const img=this.add.image(0,0,texKey).setDisplaySize(sz,sz);
 
-    // Label tag on item
-    const tagBg=this.add.rectangle(0,sz/2+10,labelText.length*7+12,18,0x000000,0.8);
-    const tag=this.add.text(0,sz/2+10,labelText,{fontFamily:'monospace',fontSize:'11px',color:labelColor}).setOrigin(0.5);
-    container.add([img,tagBg,tag]);
-    container.setSize(sz,sz+28);
-    container.setInteractive(new Phaser.Geom.Rectangle(-sz/2,-sz/2,sz,sz+30),Phaser.Geom.Rectangle.Contains);
+    // ── กรอบสี แยก BAD (แดง) vs GOOD (เขียว) ──
+    const borderColor = isBad ? 0xff2244 : 0x00e676;
+    const border = this.add.rectangle(0, 0, sz+8, sz+8, 0x000000, 0)
+      .setStrokeStyle(isBad ? 3 : 2, borderColor, isBad ? 0.9 : 0.7);
 
-    // Glitch tween for bad items
+    // ── badge มุมบนขวา: BAD=✕  GOOD=✓ ──
+    const badge = this.add.text(sz/2-1, -sz/2+1, isBad?'✕':'✓', {
+      fontFamily:'monospace', fontSize: isBad?'17px':'15px',
+      color: isBad?'#ff2244':'#00e676', stroke:'#000000', strokeThickness:4
+    }).setOrigin(1,0);
+
+    // ── Label ใหญ่ขึ้น (13px) + พื้นหลังสีตาม BAD/GOOD ──
+    const bgCol = isBad ? 0x440011 : 0x003311;
+    const tagBg = this.add.rectangle(0, sz/2+13, labelText.length*8+16, 22, bgCol, 0.95)
+      .setStrokeStyle(1, borderColor, 0.8);
+    const tag = this.add.text(0, sz/2+13, labelText, {
+      fontFamily:'monospace', fontSize:'13px', color:labelColor,
+      stroke:'#000000', strokeThickness:3
+    }).setOrigin(0.5);
+
+    container.add([border, img, badge, tagBg, tag]);
+    container.setSize(sz, sz+32);
+    container.setInteractive(new Phaser.Geom.Rectangle(-sz/2,-sz/2,sz,sz+34),Phaser.Geom.Rectangle.Contains);
+
+    // Glitch tween for bad items + กระพริบกรอบแดง
     if(isBad){
       this.tweens.add({targets:img,x:Phaser.Math.Between(-4,4),yoyo:true,repeat:-1,duration:70+Math.random()*60});
+      this.tweens.add({targets:border,alpha:{from:0.5,to:1},yoyo:true,repeat:-1,duration:380});
     }
 
     const dataObj={container,img,lane,lx,itemType,pointVal,labelText,alive:true,warned:false,
