@@ -52,4 +52,6 @@ try {
     if (servicesJSON.text) {
         apply plugin: 'com.google.gms.google-services'
     }
-} catch(E
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. This is normal.")
+}
