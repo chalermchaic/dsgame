@@ -519,9 +519,18 @@ class GameScene extends Phaser.Scene {
     this.add.rectangle(GW-40,(PLAY_TOP+PLAY_BOT)/2,78,PLAY_BOT-PLAY_TOP,0x080818,0.85);
     this.add.rectangle(GW-80,(PLAY_TOP+PLAY_BOT)/2,2,PLAY_BOT-PLAY_TOP,0x226622,0.7);
     for(let y=0;y<h;y+=4) this.add.rectangle(w/2,y,w,2,0x000000,0.07);
-    // Danger zone line (warning area near bottom)
+    // Danger zone line
     this.dangerLine = this.add.rectangle(GW/2,PLAY_BOT-55,GW,2,0xff1744,0.3);
     this.add.text(82,PLAY_BOT-64,'⚠ DANGER ZONE',{fontFamily:'monospace',fontSize:'9px',color:'#ff4444',alpha:0.6});
+
+    // ── Tap Zone labels ── แสดงให้ผู้เล่นรู้ว่าแตะช่องไหน
+    const zoneY = PLAY_TOP + 24;
+    LANE_X.forEach((lx, i) => {
+      const num = ['①','②','③'][i];
+      this.add.text(lx, zoneY, num, {
+        fontFamily:'monospace', fontSize:'16px', color:'#2a3a5a'
+      }).setOrigin(0.5);
+    });
   }
 
   _buildHUD() {
@@ -646,7 +655,8 @@ class GameScene extends Phaser.Scene {
     this.gameStarted=true;
     this._startSpawnTimer();
     this.levelTimer=this.time.addEvent({delay:this.diff.levelEvery,callback:this._levelUp,callbackScope:this,loop:true});
-    this.input.on('pointerdown',this._onTap,this);
+    // ใช้ scene-level tap แทน item-level เพื่อรองรับ mobile touch
+    this.input.on('pointerdown', this._onTap, this);
   }
 
   _startSpawnTimer() {
@@ -697,11 +707,63 @@ class GameScene extends Phaser.Scene {
       speed:this.baseSpeed + this.level*this.diff.speedStep};
     this.dataItems.add(container);
     container._data=dataObj;
-    container.on('pointerdown',()=>this._onItemTap(dataObj));
+    // ไม่ใช้ container.on('pointerdown') แล้ว — ใช้ scene-level tap แทน
+  }
+
+  // แปลง x coordinate → lane index
+  _xToLane(x) {
+    // ช่องซ้าย: 80-200, กลาง: 200-300, ขวา: 300-420
+    if (x < 80)  return -1; // เขตผู้เล่น ไม่นับ
+    if (x < 200) return 0;
+    if (x < 300) return 1;
+    if (x < 420) return 2;
+    return -1; // เขต score zone ไม่นับ
   }
 
   _onTap(pointer) {
     if(this.isGameOver||this.isPaused||!this.gameStarted) return;
+
+    // กัน tap บน HUD
+    if(pointer.y < HUD_H) return;
+
+    const lane = this._xToLane(pointer.x);
+    if(lane < 0) return;
+
+    // หา item ที่ต่ำสุด (ใกล้ bottom ที่สุด) ในช่องนี้
+    let target = null;
+    let lowestY = -Infinity;
+    this.dataItems.getChildren().forEach(c => {
+      const d = c._data;
+      if(!d || !d.alive) return;
+      if(d.lane === lane && c.y > lowestY) {
+        lowestY = c.y;
+        target = d;
+      }
+    });
+
+    // แสดง tap flash บนช่องที่แตะ
+    this._showLaneFlash(lane, pointer.y);
+
+    if(!target) {
+      // ไม่มี item ในช่อง — ยิงพลาด (ไม่เสียชีวิต)
+      SFX.shoot();
+      this._fireAt(LANE_X[lane], pointer.y, null);
+      return;
+    }
+
+    this._onItemTap(target);
+  }
+
+  _showLaneFlash(lane, tapY) {
+    const lx = LANE_X[lane];
+    const flash = this.add.rectangle(lx, tapY, LANE_WIDTH-4, 60, 0xffffff, 0.25).setDepth(5);
+    this.tweens.add({targets:flash, alpha:0, scaleY:2, duration:200,
+      onComplete:()=>flash.destroy()});
+    // วงกลมที่จุดแตะ
+    const ring = this.add.ellipse(lx, tapY, 70, 70, 0xffffff, 0).setDepth(5);
+    ring.setStrokeStyle(3, 0x00e5ff, 1);
+    this.tweens.add({targets:ring, scaleX:2, scaleY:2, alpha:0, duration:300,
+      onComplete:()=>ring.destroy()});
   }
 
   _onItemTap(dataObj) {

@@ -6,14 +6,8 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
-        <!-- Full screen: ซ่อน status bar และ nav bar -->
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
-        <!-- Android 15 (API 35): ป้องกัน edge-to-edge บังคับ -->
-        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
-        <!-- Display cutout (notch): ให้เนื้อหาลงถึงขอบหน้าจอ -->
-        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-        <!-- พื้นหลังเกม -->
         <item name="android:windowBackground">@color/colorPrimary</item>
     </style>
 
