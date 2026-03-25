@@ -1,0 +1,20 @@
+{
+  "name": "data-cleaner-outlier-invaders",
+  "version": "1.0.0",
+  "description": "Data Cleaner: Outlier Invaders - Retro Arcade Data Science Game",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Static HTML game - no build needed'",
+    "cap:add": "npx cap add android",
+    "cap:copy": "npx cap copy",
+    "cap:sync": "npx cap sync",
+    "cap:open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/core": "^6.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.1"
+  }
+}
