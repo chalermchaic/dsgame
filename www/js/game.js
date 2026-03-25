@@ -422,16 +422,32 @@ class MenuScene extends Phaser.Scene {
     });
 
     // START button
-    const btnBg = this.add.rectangle(w/2,GH-48,280,56,0x00aa33);
+    const btnBg = this.add.rectangle(w/2,GH-48,280,56,0x00aa33).setInteractive();
     this.add.rectangle(w/2,GH-48,284,60,0,0).setStrokeStyle(3,C.GREEN);
     const btnTxt = this.add.text(w/2,GH-48,'▶  START GAME',{fontFamily:'monospace',fontSize:'22px',color:'#ffffff',stroke:'#006611',strokeThickness:3}).setOrigin(0.5);
     this.tweens.add({targets:[btnBg,btnTxt],alpha:0.65,yoyo:true,repeat:-1,duration:650,ease:'Sine.easeInOut'});
 
-    this.input.once('pointerdown',()=>{
+    btnBg.on('pointerdown',()=>{
       SFX.levelUp();
       this.cameras.main.fadeOut(300,10,10,30);
-      this.time.delayedCall(320,()=>this.scene.start('Game',{diff:selectedDiff}));
+      // ถ้ายังไม่เคยดู tutorial → ไป Tutorial ก่อน
+      const dest = localStorage.getItem('dc_tut_done') ? 'Game' : 'Tutorial';
+      this.time.delayedCall(320,()=>this.scene.start(dest,{diff:selectedDiff}));
     });
+
+    // ปุ่ม ? ดู tutorial อีกครั้ง
+    const tutBg = this.add.rectangle(w-36, GH-48, 52, 52, 0x111133).setInteractive()
+      .setStrokeStyle(2, 0x4455aa);
+    const tutTxt = this.add.text(w-36, GH-48, '?', {
+      fontFamily:'monospace', fontSize:'22px', color:'#6677cc',
+      stroke:'#000', strokeThickness:2
+    }).setOrigin(0.5);
+    tutBg.on('pointerdown',()=>{
+      SFX.shoot && SFX.shoot();
+      this.cameras.main.fadeOut(250,10,10,30);
+      this.time.delayedCall(270,()=>this.scene.start('Tutorial',{diff:selectedDiff}));
+    });
+    this.add.container(0,0,[tutBg, tutTxt]);
 
     // Animate lanes
     this.time.addEvent({delay:16,callback:()=>{
@@ -657,6 +673,24 @@ class GameScene extends Phaser.Scene {
     this.levelTimer=this.time.addEvent({delay:this.diff.levelEvery,callback:this._levelUp,callbackScope:this,loop:true});
     // ใช้ scene-level tap แทน item-level เพื่อรองรับ mobile touch
     this.input.on('pointerdown', this._onTap, this);
+    // Hint bar — fade ออกใน 3.5 วินาที
+    this._showStartHint();
+  }
+
+  _showStartHint() {
+    const hint = this.add.container(GW/2, PLAY_TOP + 44).setDepth(30).setAlpha(0);
+    const bg = this.add.rectangle(0, 0, 340, 38, 0x000033, 0.88)
+      .setStrokeStyle(1, 0x4455aa, 0.8);
+    const txt = this.add.text(0, 0,
+      '✕ แดง/ม่วง = แตะยิง   |   ✓ เขียว = ปล่อย',
+      {fontFamily:'monospace', fontSize:'12px', color:'#aabbff', align:'center'}
+    ).setOrigin(0.5);
+    hint.add([bg, txt]);
+    this.tweens.add({targets:hint, alpha:1, duration:400, onComplete:()=>{
+      this.time.delayedCall(3000, ()=>{
+        this.tweens.add({targets:hint, alpha:0, duration:600, onComplete:()=>hint.destroy()});
+      });
+    }});
   }
 
   _startSpawnTimer() {
@@ -970,6 +1004,153 @@ class GameScene extends Phaser.Scene {
   }
 }
 
+/* ── TUTORIAL SCENE ───────────────────────────────────── */
+class TutorialScene extends Phaser.Scene {
+  constructor() { super('Tutorial'); }
+
+  create(data) {
+    this._diff = data?.diff || selectedDiff;
+    this._skipFlag = false;
+    const w=GW, h=GH;
+    this.add.rectangle(w/2,h/2,w,h,C.BG);
+    for(let y=0;y<h;y+=4) this.add.rectangle(w/2,y,w,2,0x000000,0.08);
+    // Header
+    this.add.rectangle(w/2,36,w,72,0x060618);
+    this.add.text(w/2,28,'HOW TO PLAY',{fontFamily:'monospace',fontSize:'22px',color:'#00e5ff',stroke:'#003344',strokeThickness:3}).setOrigin(0.5);
+    this.add.text(w/2,54,'สอนวิธีเล่น',{fontFamily:'monospace',fontSize:'13px',color:'#6688aa'}).setOrigin(0.5);
+    // Step dots (indicators)
+    this._dots = [];
+    for(let i=0;i<3;i++){
+      const d = this.add.rectangle(w/2 + (i-1)*24, h-20, 12, 12, 0x333366).setDepth(10);
+      this._dots.push(d);
+    }
+    // Content container
+    this._con = this.add.container(0,0);
+    this._step = 0;
+    this._showStep(0);
+    this.cameras.main.fadeIn(300,10,10,30);
+  }
+
+  _showStep(n) {
+    this._con.removeAll(true);
+    this._step = n;
+    // Update dots
+    this._dots.forEach((d,i)=> d.setFillStyle(i===n ? 0x00e5ff : 0x333366));
+    if(n===0)      this._stepBad();
+    else if(n===1) this._stepGood();
+    else           this._stepReady();
+  }
+
+  _stepBad() {
+    const w=GW, mid=GH/2+10;
+    this._addTitle('💥  ยิงทำลาย!', '#ff4466');
+    this._con.add(this.add.text(w/2,140,'เห็น  ✕  สีแดง = แตะทันที!',
+      {fontFamily:'monospace',fontSize:'16px',color:'#ffcccc',stroke:'#000',strokeThickness:2}).setOrigin(0.5));
+    // Items demo
+    this._addItemDemo(w/2-90, mid, 'null_item',    'NULL',    '#ff00ff', true,  62);
+    this._addItemDemo(w/2+90, mid, 'outlier_item', 'OUTLIER', '#ff4466', true,  62);
+    this._con.add(this.add.text(w/2, mid+110,'ถ้าปล่อยให้ตกถึงด้านล่าง = เสียชีวิต ❤',
+      {fontFamily:'monospace',fontSize:'13px',color:'#ff8888',stroke:'#000',strokeThickness:2}).setOrigin(0.5));
+    this._addNextBtn('เข้าใจแล้ว →', ()=>this._showStep(1));
+  }
+
+  _stepGood() {
+    const w=GW, mid=GH/2;
+    this._addTitle('✅  ปล่อยให้ผ่าน!', '#00e676');
+    this._con.add(this.add.text(w/2,140,'เห็น  ✓  สีเขียว = ปล่อยให้ตก!',
+      {fontFamily:'monospace',fontSize:'16px',color:'#ccffcc',stroke:'#000',strokeThickness:2}).setOrigin(0.5));
+    this._addItemDemo(w/2-140, mid, 'valid_item', 'VALID',  '#00e676', false, 52);
+    this._addItemDemo(w/2,     mid, 'log_item',   'LOG_OK', '#ff9100', false, 52);
+    this._addItemDemo(w/2+140, mid, 'image_item', 'IMAGE',  '#82b1ff', false, 52);
+    this._con.add(this.add.text(w/2, mid+106,'↓  ตกถึง SCORE ZONE = +คะแนน!',
+      {fontFamily:'monospace',fontSize:'14px',color:'#88ff88',stroke:'#000',strokeThickness:2}).setOrigin(0.5));
+    this._addNextBtn('เข้าใจแล้ว →', ()=>this._showStep(2));
+  }
+
+  _stepReady() {
+    const w=GW;
+    this._addTitle('🎮  สรุปสั้นๆ', '#ffeb3b');
+
+    // BAD card
+    const cy1=290, cy2=420;
+    const bc=this.add.rectangle(w/2,cy1,390,90,0x330011,1).setStrokeStyle(2,0xff2244,0.9);
+    const bi1=this.add.image(w/2-140,cy1,'null_item').setDisplaySize(52,52);
+    const bi2=this.add.image(w/2-72,cy1,'outlier_item').setDisplaySize(52,52);
+    const bt=this.add.text(w/2-4,cy1-13,'✕  NULL / OUTLIER',{fontFamily:'monospace',fontSize:'15px',color:'#ff4466',stroke:'#000',strokeThickness:3}).setOrigin(0,0.5);
+    const bt2=this.add.text(w/2-4,cy1+16,'→ แตะทันที!',{fontFamily:'monospace',fontSize:'13px',color:'#ffaaaa'}).setOrigin(0,0.5);
+    this._con.add([bc,bi1,bi2,bt,bt2]);
+
+    // GOOD card
+    const gc=this.add.rectangle(w/2,cy2,390,90,0x003311,1).setStrokeStyle(2,0x00e676,0.7);
+    const gi1=this.add.image(w/2-150,cy2,'valid_item').setDisplaySize(46,46);
+    const gi2=this.add.image(w/2-88,cy2,'log_item').setDisplaySize(46,46);
+    const gi3=this.add.image(w/2-26,cy2,'image_item').setDisplaySize(46,46);
+    const gt=this.add.text(w/2+18,cy2-13,'✓  VALID / LOG / IMAGE',{fontFamily:'monospace',fontSize:'14px',color:'#00e676',stroke:'#000',strokeThickness:3}).setOrigin(0,0.5);
+    const gt2=this.add.text(w/2+18,cy2+16,'→ ปล่อยให้ตก!',{fontFamily:'monospace',fontSize:'13px',color:'#aaffaa'}).setOrigin(0,0.5);
+    this._con.add([gc,gi1,gi2,gi3,gt,gt2]);
+
+    // Skip checkbox
+    const skipBg=this.add.rectangle(w/2,540,340,46,0x0d0d22,1).setStrokeStyle(1,0x3344aa).setInteractive();
+    const box=this.add.rectangle(w/2-130,540,24,24,0x111133,1).setStrokeStyle(2,0x5566aa);
+    this._chk=this.add.text(w/2-130,540,'',{fontFamily:'monospace',fontSize:'18px',color:'#00e5ff'}).setOrigin(0.5);
+    const lbl=this.add.text(w/2-108,540,'ไม่ต้องแสดงอีก',{fontFamily:'monospace',fontSize:'15px',color:'#8899cc'}).setOrigin(0,0.5);
+    this._con.add([skipBg,box,this._chk,lbl]);
+    skipBg.on('pointerdown',()=>{
+      this._skipFlag=!this._skipFlag;
+      this._chk.setText(this._skipFlag?'✓':'');
+      box.setStrokeStyle(2, this._skipFlag?0x00e5ff:0x5566aa);
+      SFX.shoot&&SFX.shoot();
+    });
+
+    // Start button
+    const stBg=this.add.rectangle(w/2,626,320,64,0x009922).setInteractive().setStrokeStyle(3,C.GREEN);
+    const stTxt=this.add.text(w/2,626,'▶  เริ่มเล่น!',{fontFamily:'monospace',fontSize:'26px',color:'#fff',stroke:'#006611',strokeThickness:3}).setOrigin(0.5);
+    this._con.add([stBg,stTxt]);
+    this.tweens.add({targets:[stBg,stTxt],alpha:0.7,yoyo:true,repeat:-1,duration:600});
+    stBg.on('pointerdown',()=>{
+      SFX.levelUp&&SFX.levelUp();
+      if(this._skipFlag) localStorage.setItem('dc_tut_done','1');
+      this.cameras.main.fadeOut(300,10,10,30);
+      this.time.delayedCall(320,()=>this.scene.start('Game',{diff:this._diff}));
+    });
+  }
+
+  _addTitle(txt, color) {
+    this._con.add(this.add.text(GW/2,108,txt,{
+      fontFamily:'monospace',fontSize:'28px',color,stroke:'#000',strokeThickness:4
+    }).setOrigin(0.5));
+  }
+
+  _addItemDemo(x,y,texKey,label,color,isBad,sz) {
+    const bc=isBad?0xff2244:0x00e676;
+    const border=this.add.rectangle(x,y,sz+8,sz+8,0x000000,0).setStrokeStyle(isBad?3:2,bc,isBad?0.9:0.7);
+    const img=this.add.image(x,y,texKey).setDisplaySize(sz,sz);
+    const badge=this.add.text(x+sz/2-1,y-sz/2+1,isBad?'✕':'✓',{
+      fontFamily:'monospace',fontSize:isBad?'17px':'15px',
+      color:isBad?'#ff2244':'#00e676',stroke:'#000',strokeThickness:4
+    }).setOrigin(1,0);
+    const bgC=isBad?0x440011:0x003311;
+    const tagBg=this.add.rectangle(x,y+sz/2+13,label.length*8+16,22,bgC,0.95).setStrokeStyle(1,bc,0.8);
+    const tag=this.add.text(x,y+sz/2+13,label,{
+      fontFamily:'monospace',fontSize:'13px',color,stroke:'#000',strokeThickness:3
+    }).setOrigin(0.5);
+    this._con.add([border,img,badge,tagBg,tag]);
+    if(isBad){
+      this.tweens.add({targets:img,x:x+Phaser.Math.Between(-4,4),yoyo:true,repeat:-1,duration:80});
+      this.tweens.add({targets:border,alpha:{from:0.5,to:1},yoyo:true,repeat:-1,duration:380});
+    }
+  }
+
+  _addNextBtn(label, cb) {
+    const w=GW;
+    const bg=this.add.rectangle(w/2,GH-80,300,60,0x112299).setInteractive().setStrokeStyle(2,0x4466ff);
+    const txt=this.add.text(w/2,GH-80,label,{fontFamily:'monospace',fontSize:'20px',color:'#fff',stroke:'#000',strokeThickness:3}).setOrigin(0.5);
+    this._con.add([bg,txt]);
+    this.tweens.add({targets:[bg,txt],alpha:0.75,yoyo:true,repeat:-1,duration:700});
+    bg.on('pointerdown',()=>{ SFX.shoot&&SFX.shoot(); cb(); });
+  }
+}
+
 /* ── GAME OVER SCENE ──────────────────────────────────── */
 class GameOverScene extends Phaser.Scene {
   constructor() { super('GameOver'); }
@@ -1048,7 +1229,7 @@ const config = {
   height: GH,
   backgroundColor: '#0a0a1a',
   parent: 'game-container',
-  scene: [BootScene, MenuScene, GameScene, GameOverScene],
+  scene: [BootScene, MenuScene, TutorialScene, GameScene, GameOverScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
