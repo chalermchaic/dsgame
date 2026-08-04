@@ -1,14 +1,14 @@
 ext {
     minSdkVersion = 22
-    compileSdkVersion = 35
-    targetSdkVersion = 35
-    androidxActivityVersion = '1.9.0'          // ต้องอัปเดตสำหรับ API 35
-    androidxAppCompatVersion = '1.7.0'         // ต้องอัปเดตสำหรับ API 35
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    androidxActivityVersion = '1.13.0'          // อัปเดตสำหรับ API 36
+    androidxAppCompatVersion = '1.7.1'         // อัปเดตสำหรับ API 36
     androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxCoreVersion = '1.13.1'             // ต้องอัปเดตสำหรับ API 35
-    androidxFragmentVersion = '1.8.0'          // ต้องอัปเดตสำหรับ API 35
+    androidxCoreVersion = '1.19.0'             // อัปเดตสำหรับ API 36
+    androidxFragmentVersion = '1.8.9'          // อัปเดตสำหรับ API 36
     coreSplashScreenVersion = '1.0.1'
-    androidxWebkitVersion = '1.11.0'           // ต้องอัปเดตสำหรับ API 35
+    androidxWebkitVersion = '1.16.0'           // อัปเดตสำหรับ API 36
     junitVersion = '4.13.2'
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'
